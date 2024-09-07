@@ -1,6 +1,4 @@
 Flask
 Flask-RESTful
 Flask-SQLAlchemy
-Flask-Migrate 
-python-dotenv
 pymysql
