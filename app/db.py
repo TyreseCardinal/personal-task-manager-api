@@ -1,3 +1,3 @@
-from app import db
+from flask_sqlalchemy import SQLAlchemy
 
-# This file can be empty or contain other database-related logic.
+db = SQLAlchemy()
