@@ -28,7 +28,7 @@ def get_task(task_id):
     if task and task.user_id == get_jwt_identity()['id']:
         return jsonify({
             'id': task.id,
-            'title': task.title,
+            'title': task.title, 
             'completed': task.completed,
             'created_at': task.created_at,
             'updated_at': task.updated_at
