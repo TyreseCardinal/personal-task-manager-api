@@ -4,6 +4,9 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_cors import CORS
 from .db import db
 from werkzeug.utils import secure_filename
+from datetime import datetime, timezone, timedelta
+from app.models import Event, User, Task
+
 
 api_bp = Blueprint('api', __name__)
 
@@ -27,7 +30,7 @@ def get_tasks():
         'updated_at': t.updated_at
     } for t in tasks]), 200
 
-@api_bp.route('/task/<int:task_id>', methods=['GET'])
+@api_bp.route('/tasks/<int:task_id>', methods=['GET'])
 @jwt_required()
 def get_task(task_id):
     """Retrieve a specific task by ID for the authenticated user."""
@@ -42,7 +45,7 @@ def get_task(task_id):
         }), 200
     return jsonify(message="Task not found"), 404
 
-@api_bp.route('/task', methods=['POST'])
+@api_bp.route('/tasks', methods=['POST'])
 @jwt_required()
 def create_task():
     """Create a new task for the authenticated user."""
@@ -59,7 +62,7 @@ def create_task():
     
     return jsonify(message="Task created", task_id=new_task.id), 201
 
-@api_bp.route('/task/<int:task_id>', methods=['PUT'])
+@api_bp.route('/tasks/<int:task_id>', methods=['PUT'])
 @jwt_required()
 def update_task(task_id):
     """Update a specific task by ID for the authenticated user."""
@@ -72,7 +75,7 @@ def update_task(task_id):
         return jsonify(message="Task updated"), 200
     return jsonify(message="Task not found or unauthorized"), 404
 
-@api_bp.route('/task/<int:task_id>', methods=['DELETE'])
+@api_bp.route('/tasks/<int:task_id>', methods=['DELETE'])
 @jwt_required()
 def delete_task(task_id):
     """Delete a specific task by ID for the authenticated user."""
@@ -100,17 +103,19 @@ def update_user_info():
     db.session.commit()
     return jsonify(message="User info updated successfully"), 200
 
-@api_bp.route('/upload', methods=['POST'])
+@api_bp.route('/upload', methods=['POST', 'OPTIONS'])
 @jwt_required()
 def upload_profile_picture():
-    """Upload a profile picture for the authenticated user."""
+    if request.method == 'OPTIONS':
+        return '', 200  # Send a blank response with 200 OK for preflight OPTIONS request
+
     current_user = get_jwt_identity()
     user = User.query.filter_by(id=current_user['id']).first()
 
     if not user:
         return jsonify(message="User not found"), 404
 
-    file = request.files['file']
+    file = request.files.get('file')
     if file:
         file_path = f'static/uploads/{file.filename}'  # Save to the static/uploads directory
         file.save(file_path)
@@ -119,6 +124,7 @@ def upload_profile_picture():
         return jsonify(message="Profile picture uploaded successfully", profile_picture=user.profile_picture), 200
 
     return jsonify(message="File not provided"), 400
+
 
 # --- TIMELINE ROUTES ---
 
@@ -176,12 +182,13 @@ def update_event(id):
     data = request.json
     event = Event.query.get_or_404(id)
 
+    # Ensure the user trying to update the event is the creator
     if event.user_id != get_jwt_identity()['id']:
         return jsonify({'error': 'Unauthorized'}), 403
 
+    # Update fields
     event.title = data.get('title', event.title)
     event.description = data.get('description', event.description)
-
     if 'event_date' in data:
         try:
             event.event_date = datetime.strptime(data['event_date'], '%Y-%m-%d')
@@ -190,6 +197,7 @@ def update_event(id):
 
     db.session.commit()
     return jsonify({'message': 'Event updated successfully'})
+
 
 # 4. Delete an event by ID
 @api_bp.route('/events/<int:id>', methods=['DELETE'])
