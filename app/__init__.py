@@ -1,6 +1,7 @@
-from flask import Flask, render_template
+import os
+from flask import Flask
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity
+from flask_jwt_extended import JWTManager
 from .db import db
 from .config import Config
 
@@ -9,15 +10,18 @@ jwt = JWTManager()
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
-    CORS(app, supports_credentials=True)
-    CORS(app, resources={r"/*": {"origins": "http://localhost:8080"}})
-
+    
+    # Configure CORS to allow credentials and requests from localhost:8080 only
+    CORS(app, supports_credentials=True, origins=["http://localhost:8080"])
+    
     # Configure file upload settings
-    app.config['UPLOAD_FOLDER'] = 'static/uploads'
+    upload_folder = os.path.join(app.root_path, 'static/uploads')
+    if not os.path.exists(upload_folder):
+        os.makedirs(upload_folder)
+    app.config['UPLOAD_FOLDER'] = 'static'
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Optional: Limit the upload size to 16MB
-
+    
     # Initialize extensions
-    CORS(app)  # Allow all origins for API routes
     db.init_app(app)
     jwt.init_app(app)
     

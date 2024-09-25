@@ -1,5 +1,5 @@
 import os
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app, url_for
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_cors import CORS
 from .db import db
@@ -103,28 +103,29 @@ def update_user_info():
     db.session.commit()
     return jsonify(message="User info updated successfully"), 200
 
-@api_bp.route('/upload', methods=['POST', 'OPTIONS'])
+from flask import current_app
+
+@api_bp.route('/upload', methods=['POST'])
 @jwt_required()
 def upload_profile_picture():
-    if request.method == 'OPTIONS':
-        return '', 200  # Send a blank response with 200 OK for preflight OPTIONS request
-
-    current_user = get_jwt_identity()
-    user = User.query.filter_by(id=current_user['id']).first()
-
-    if not user:
-        return jsonify(message="User not found"), 404
-
-    file = request.files.get('file')
+    if 'profile_picture' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    
+    file = request.files['profile_picture']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+    
     if file:
-        file_path = f'static/uploads/{file.filename}'  # Save to the static/uploads directory
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
         file.save(file_path)
-        user.profile_picture = file_path
-        db.session.commit()
-        return jsonify(message="Profile picture uploaded successfully", profile_picture=user.profile_picture), 200
+        
+        image_url = url_for('uploaded_file', filename=filename, _external=True)
+        return jsonify({"message": "File uploaded successfully", "profile_picture": filename}), 200
 
-    return jsonify(message="File not provided"), 400
-
+@api_bp.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
 
 # --- TIMELINE ROUTES ---
 
