@@ -12,14 +12,16 @@ def create_app():
     app.config.from_object(Config)
     
     # Configure CORS to allow credentials and requests from localhost:8080 only
-    CORS(app, supports_credentials=True, origins=["http://localhost:8080"])
+    CORS(app, supports_credentials=True, origins=["http://localhost:8080"], allow_headers=["Authorization", "Content-Type"])
+
+
     
     # Configure file upload settings
     upload_folder = os.path.join(app.root_path, 'static/uploads')
     if not os.path.exists(upload_folder):
         os.makedirs(upload_folder)
-    app.config['UPLOAD_FOLDER'] = 'static'
-    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Optional: Limit the upload size to 16MB
+    app.config['UPLOAD_FOLDER'] = upload_folder  # Correctly set upload folder
+    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Limit upload size to 16MB
     
     # Initialize extensions
     db.init_app(app)
