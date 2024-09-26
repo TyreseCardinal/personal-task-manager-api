@@ -1,5 +1,11 @@
-from flask import Blueprint, request, jsonify, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token
+from flask import Flask, Blueprint, request, jsonify, current_app
+from flask_jwt_extended import (
+    jwt_required,
+    get_jwt_identity,
+    create_access_token,
+    create_refresh_token,
+)
+import jwt
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
@@ -8,6 +14,7 @@ from .db import db
 import os
 
 auth_bp = Blueprint('auth', __name__)
+CORS(auth_bp, supports_credentials=True)  # Enable CORS with credentials support
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
@@ -20,7 +27,9 @@ def login():
     
     if user and user.check_password(password):  # Ensure `check_password` is implemented
         access_token = create_access_token(identity={'id': user.id})
-        return jsonify(access_token=access_token), 200
+        refresh_token = create_refresh_token(identity={'id': user.id})
+        
+        return jsonify(access_token=access_token, refresh_token=refresh_token), 200
     
     return jsonify(message="Invalid credentials"), 401
 
@@ -102,3 +111,29 @@ def delete_account():
     db.session.commit()
 
     return jsonify({"message": "Account deleted"}), 200
+
+@auth_bp.route('/auth/refresh-token', methods=['POST'])
+@jwt_required()
+def refresh_token():
+    data = request.get_json()
+    refresh_token = data.get('refresh_token')
+
+    user_id = get_jwt_identity()['id']
+
+    if not refresh_token:
+        return jsonify({'error': 'Missing refresh token'}), 400
+
+    try:
+        # Decode the refresh token
+        payload = jwt.decode(refresh_token, current_app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
+
+        # Create a new access token
+        new_access_token = create_access_token(identity={'id': payload['identity']['id']})  # Ensure correct payload structure
+
+        return jsonify({'new_access_token': new_access_token}), 200
+
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Refresh token has expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid refresh token'}), 401
+
