@@ -137,26 +137,41 @@ def upload():
 @jwt_required()
 def get_timeline_events():
     current_user = get_jwt_identity()
+    
+    # Get 'current_date' parameter from the request
     current_date = request.args.get('current_date')  # 'YYYY-MM-DD'
+    
+    # Check if 'current_date' is provided
     if not current_date:
         return jsonify({'error': 'Missing current_date parameter'}), 400
-
-    current_date_obj = datetime.strptime(current_date, '%Y-%m-%d')
+    
+    try:
+        # Parse 'current_date' string into a datetime object
+        current_date_obj = datetime.strptime(current_date, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({'error': 'Invalid date format, expected YYYY-MM-DD'}), 400
+    
+    # Calculate 7 days before and after the current date
     start_date = current_date_obj - timedelta(days=7)
     end_date = current_date_obj + timedelta(days=7)
-
-    events = Event.query.filter_by(user_id=current_user['id']).filter(Event.event_date.between(start_date, end_date)).order_by(Event.event_date.asc()).all()
-
+    
+    # Query the database for events in the date range for the current user
+    events = Event.query.filter_by(user_id=current_user['id']).filter(
+        Event.event_date.between(start_date, end_date)
+    ).order_by(Event.event_date.asc()).all()
+    
+    # Convert events to JSON format
     events_data = [{
         'id': event.id,
         'title': event.title,
         'description': event.description,
-        'event_date': event.event_date.strftime('%Y-%m-%d'),
-        'created_at': event.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-        'updated_at': event.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+        'event_date': event.event_date.isoformat(),  # Change this
+        'created_at': event.created_at.isoformat(),
+        'updated_at': event.updated_at.isoformat(),
     } for event in events]
 
-    return jsonify(events_data)
+    return jsonify(events_data), 200  # This line should be indented properly
+
 
 # --- EVENT ROUTES ---
 
