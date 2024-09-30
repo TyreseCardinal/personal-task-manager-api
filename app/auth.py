@@ -7,6 +7,7 @@ from flask_jwt_extended import (
 )
 import jwt
 from flask_cors import CORS
+from datetime import timedelta
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 from .models import User
@@ -14,23 +15,23 @@ from .db import db
 import os
 
 auth_bp = Blueprint('auth', __name__)
-CORS(auth_bp, supports_credentials=True)  # Enable CORS with credentials support
+CORS(auth_bp, supports_credentials=True, resources={r"/*": {"origins": "http://localhost:8080"}})
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
-    """Login and return a JWT token."""
     data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
+    user = User.query.filter_by(email=data['email']).first()
     
-    user = User.query.filter_by(email=email).first()
-    
-    if user and user.check_password(password):  # Ensure `check_password` is implemented
-        access_token = create_access_token(identity={'id': user.id})
-        refresh_token = create_refresh_token(identity={'id': user.id})
+    if user and user.check_password(data['password']):
+        # Generate access and refresh tokens
+        access_token = create_access_token(identity={'id': user.id}, expires_delta=timedelta(minutes=15))
+        refresh_token = create_refresh_token(identity={'id': user.id}, expires_delta=timedelta(days=7)),
+
         
-        return jsonify(access_token=access_token, refresh_token=refresh_token), 200
-    
+        return jsonify({
+            'access_token': access_token,
+            'refresh_token': refresh_token
+        }), 200
     return jsonify(message="Invalid credentials"), 401
 
 @auth_bp.route('/register', methods=['POST'])
@@ -112,9 +113,12 @@ def delete_account():
 
     return jsonify({"message": "Account deleted"}), 200
 
-@auth_bp.route('/auth/refresh-token', methods=['POST'])
-@jwt_required()
+@auth_bp.route('/refresh', methods=['POST', 'OPTIONS'])
+@jwt_required(refresh=True)
 def refresh_token():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
     data = request.get_json()
     refresh_token = data.get('refresh_token')
 
@@ -130,7 +134,7 @@ def refresh_token():
         # Create a new access token
         new_access_token = create_access_token(identity={'id': payload['identity']['id']})  # Ensure correct payload structure
 
-        return jsonify({'new_access_token': new_access_token}), 200
+        return jsonify({'new_access_token': access_token}), 200
 
     except jwt.ExpiredSignatureError:
         return jsonify({'error': 'Refresh token has expired'}), 401
