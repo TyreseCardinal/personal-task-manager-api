@@ -1,4 +1,4 @@
-from flask import Flask, Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import (
     jwt_required,
     get_jwt_identity,
@@ -25,8 +25,7 @@ def login():
     if user and user.check_password(data['password']):
         # Generate access and refresh tokens
         access_token = create_access_token(identity={'id': user.id}, expires_delta=timedelta(minutes=15))
-        refresh_token = create_refresh_token(identity={'id': user.id}, expires_delta=timedelta(days=7)),
-
+        refresh_token = create_refresh_token(identity={'id': user.id}, expires_delta=timedelta(days=7))  # Fixed: removed comma
         
         return jsonify({
             'access_token': access_token,
@@ -36,7 +35,6 @@ def login():
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
-    """Register a new user."""
     data = request.get_json()
     
     if not data or not data.get('username') or not data.get('email') or not data.get('password'):
@@ -44,7 +42,6 @@ def register():
 
     hashed_password = generate_password_hash(data['password'])
     
-    # Create a new user
     new_user = User(
         username=data['username'],
         email=data['email'],
@@ -59,7 +56,6 @@ def register():
 @auth_bp.route('/profile-picture', methods=['POST'])
 @jwt_required()
 def upload_profile_picture():
-    """Upload a profile picture for the authenticated user."""
     user_id = get_jwt_identity()['id']
     
     if 'file' not in request.files:
@@ -69,14 +65,11 @@ def upload_profile_picture():
     if file.filename == '':
         return jsonify({"message": "No file selected"}), 400
 
-    # Secure the filename
     filename = secure_filename(file.filename)
     filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
     
-    # Save the file to the upload folder
     file.save(filepath)
 
-    # Update user profile picture path in the database
     user = User.query.get(user_id)
     user.profile_picture = filepath
     db.session.commit()
@@ -86,7 +79,6 @@ def upload_profile_picture():
 @auth_bp.route('/update', methods=['PUT'])
 @jwt_required()
 def update_user():
-    """Update the authenticated user's information."""
     user_id = get_jwt_identity()['id']
     data = request.get_json()
 
@@ -103,7 +95,6 @@ def update_user():
 @auth_bp.route('/delete', methods=['DELETE'])
 @jwt_required()
 def delete_account():
-    """Delete the authenticated user's account."""
     user_id = get_jwt_identity()['id']
 
     user = User.query.get(user_id)
@@ -113,31 +104,22 @@ def delete_account():
 
     return jsonify({"message": "Account deleted"}), 200
 
-@auth_bp.route('/refresh', methods=['POST', 'OPTIONS'])
-@jwt_required(refresh=True)
+@auth_bp.route('/refresh', methods=['POST'])
 def refresh_token():
-    if request.method == 'OPTIONS':
-        return '', 200
-    
     data = request.get_json()
     refresh_token = data.get('refresh_token')
-
-    user_id = get_jwt_identity()['id']
 
     if not refresh_token:
         return jsonify({'error': 'Missing refresh token'}), 400
 
     try:
-        # Decode the refresh token
         payload = jwt.decode(refresh_token, current_app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
 
         # Create a new access token
-        new_access_token = create_access_token(identity={'id': payload['identity']['id']})  # Ensure correct payload structure
+        new_access_token = create_access_token(identity={'id': payload['identity']['id']})
 
-        return jsonify({'new_access_token': access_token}), 200
-
+        return jsonify({'new_access_token': new_access_token}), 200
     except jwt.ExpiredSignatureError:
         return jsonify({'error': 'Refresh token has expired'}), 401
     except jwt.InvalidTokenError:
         return jsonify({'error': 'Invalid refresh token'}), 401
-

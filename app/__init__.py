@@ -11,8 +11,14 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # Configure CORS to allow credentials and requests from localhost:8080 only
-    CORS(app, supports_credentials=True, origins=["http://localhost:8080"], allow_headers=["Authorization", "Content-Type"])
+    # Corrected CORS configuration: Dictionary with resource paths as keys
+    CORS(app, resources={
+        r"/auth/*": {"origins": "http://localhost:8080"},
+        r"/api/*": {"origins": "http://localhost:8080"}
+    },
+    supports_credentials=True,
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"])
 
     # Configure file upload settings
     upload_folder = os.path.join(app.root_path, 'static/uploads')
