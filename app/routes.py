@@ -175,6 +175,8 @@ def get_timeline_events():
 
 # --- EVENT ROUTES ---
 
+
+# Create Event 
 @api_bp.route('/events', methods=['POST'])
 @jwt_required()
 def create_event():
@@ -192,6 +194,7 @@ def create_event():
 
     return jsonify({'message': 'Event created successfully', 'event_id': new_event.id}), 201
 
+# Update Event
 @api_bp.route('/events/<int:id>', methods=['PUT'])
 @jwt_required()
 def update_event(id):
@@ -212,6 +215,7 @@ def update_event(id):
     db.session.commit()
     return jsonify({'message': 'Event updated successfully'})
 
+# Delete Event
 @api_bp.route('/events/<int:id>', methods=['DELETE'])
 @jwt_required()
 def delete_event(id):
